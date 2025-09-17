@@ -1,0 +1,28 @@
+{
+  "name": "tldr-wasm-figma",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "wasm": "emcmake cmake -S engine -B engine/build && cmake --build engine/build",
+    "emsdk:env": "bash -c 'export EMSDK=$HOME/emsdk && source $HOME/emsdk/emsdk_env.sh >/dev/null && emcc -v'",
+    "emsdk:build": "bash -c 'export EMSDK=$HOME/emsdk && source $HOME/emsdk/emsdk_env.sh >/dev/null && emcc main.c -o main.js'",
+    "watch:wasm": "nodemon --watch engine/src --watch engine/include --exec \"pnpm run wasm\"",
+    "go": "pnpm run emsdk:env && pnpm run wasm && pnpm run dev"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.79",
+    "@types/react-dom": "^18.2.25",
+    "@vitejs/plugin-react": "^4.2.1",
+    "nodemon": "^3.1.10",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0"
+  }
+}

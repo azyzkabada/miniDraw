@@ -1,0 +1,242 @@
+################################################################################
+# OS / Éditeurs
+################################################################################
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux / Vim / Emacs
+*~
+.nfs*
+.*.swp
+.swp
+.swo
+.swn
+.#*
+\#*\#
+*.un~
+*~backup*
+
+# IDEs
+.idea/
+.vscode/
+.history/
+*.code-workspace
+
+################################################################################
+# Node / JS / TS (général)
+################################################################################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+bun.lockb
+.pnp.*
+.pnpjs
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+.cache/
+.tmp/
+temp/
+tmp/
+coverage/
+.nyc_output/
+report-[0-9]*/
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+################################################################################
+# Yarn Berry (v2+)
+################################################################################
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+################################################################################
+# PNPM
+################################################################################
+.pnpm-store/
+.pnpm/            # cas rares (workspace)
+shrinkwrap.yaml   # ancien nom lock PNPM (si jamais)
+
+################################################################################
+# Next.js
+################################################################################
+.next/
+.next/cache/
+out/              # export statique (souvent re-généré)
+.vercel/
+# ⚠️ next-env.d.ts est auto-généré mais recommandé de le COMMIT.
+# !next-env.d.ts
+
+################################################################################
+# Vite / React (CRA) / Build front
+################################################################################
+dist/
+build/
+*.cache/
+vite.config.timestamp-*.mjs
+# CRA
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local
+
+################################################################################
+# Storybook
+################################################################################
+.storybook-out/
+storybook-static/
+.out/
+
+################################################################################
+# Tests / E2E
+################################################################################
+# Cypress
+cypress/videos/
+cypress/screenshots/
+cypress/downloads/
+
+# Playwright
+playwright-report/
+blob-report/
+test-results/
+.playwright/
+
+# Vitest / Jest
+coverage/
+.vitest/
+
+################################################################################
+# Turborepo / Monorepo tools
+################################################################################
+.turbo/
+turbo-*
+turbo-*.log
+
+################################################################################
+# Environnements / Secrets (garde un .env.example)
+################################################################################
+.env
+.env.*
+!.env.example
+!.env.sample
+*.env.local
+*.secret
+*.secrets
+*.key
+*.pem
+*.p12
+
+################################################################################
+# Bases de données locales / Prisma / SQLite
+################################################################################
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+*.sqlite3
+*.sqlite3-journal
+prisma/dev.db
+prisma/dev.db-journal
+
+################################################################################
+# Uploads / Assets générés localement
+################################################################################
+uploads/
+storage/
+public/uploads/
+public/build/
+*.orig
+*.rej
+
+################################################################################
+# Docker / Conteneurs
+################################################################################
+docker-data/
+.docker/
+*.tar
+*.img
+
+################################################################################
+# C / C++ (workers natifs, addons, WASM)
+################################################################################
+# Compilateurs (GNU/Clang)
+*.o
+*.lo
+*.la
+*.al
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.obj
+*.exe
+*.out
+
+# Make/CMake
+Makefile
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+build-*/
+build*/          # ex: build, build-wasm
+_debug/
+_release/
+
+# Ninja
+*.ninja
+.ninja_deps
+.ninja_log
+
+# Emscripten / Wasm artefacts (ajuste si tu veux les committer)
+*.wasm
+*.wasm.map
+*.wasm.br
+*.wasm.gz
+*.wast
+*.js.mem
+*a.out.js
+*a.out.wasm
+*.bc
+emscripten-cache/
+wasm-build/
+wasm-dist/
+
+################################################################################
+# Images / Optimisation caches
+################################################################################
+.next/image-cache/
+images-cache/
+*.thumbs.db
+
+################################################################################
+# Divers
+################################################################################
+*.mono.zip
+*.tgz
+*.zip
+*.7z
+*.rar
+*.tar.gz
+*.orig
+*.patch
