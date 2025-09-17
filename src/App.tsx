@@ -2,6 +2,7 @@ import {
   PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState
@@ -97,7 +98,7 @@ const App = () => {
         Math.max(0, workspaceFocusY * nextZoom - offsetY)
       );
 
-      scroll.scrollTo({ left: targetLeft, top: targetTop });
+      scroll.scrollTo({ left: targetLeft, top: targetTop, behavior: 'auto' });
     },
     [workspaceSize.height, workspaceSize.width]
   );
@@ -294,7 +295,7 @@ const App = () => {
     setWorkspaceSize((current) => updateWorkspaceFromShapes(current));
   }, [updateWorkspaceFromShapes]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const scroll = scrollRef.current;
     if (!scroll) {
       previousWorkspaceRef.current = workspaceSize;
