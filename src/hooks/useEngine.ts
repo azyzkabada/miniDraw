@@ -37,10 +37,15 @@ const toPointerPayload = (
 
 export const useEngine = (
   canvasRef: CanvasRef,
-  logicalSize?: { width: number; height: number }
+  logicalSize?: { width: number; height: number },
+  zoom: number = 1
 ): UseEngineResult => {
   const workerRef = useRef<EngineWorker | null>(null);
-  const initialSizeRef = useRef(logicalSize);
+  const initialSizeRef = useRef({ size: logicalSize, zoom });
+
+  useEffect(() => {
+    initialSizeRef.current = { size: logicalSize, zoom };
+  }, [logicalSize?.height, logicalSize?.width, zoom]);
   const [state, setState] = useState<EngineStatePayload>({
     document: null,
     presences: []
@@ -58,17 +63,17 @@ export const useEngine = (
       return;
     }
 
-    const initialSize = initialSizeRef.current;
-    if (initialSize) {
-      canvas.width = initialSize.width;
-      canvas.height = initialSize.height;
+    const initial = initialSizeRef.current;
+    if (initial?.size) {
+      canvas.width = initial.size.width;
+      canvas.height = initial.size.height;
     }
 
     const worker = createWorker();
     workerRef.current = worker;
 
     const offscreen = canvas.transferControlToOffscreen();
-    const dpr = Math.min(window.devicePixelRatio || 1, 1);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     const handleMessage = (event: MessageEvent<WorkerToUIMessage>) => {
       const { data } = event;
@@ -96,16 +101,16 @@ export const useEngine = (
     };
     worker.postMessage(initMessage, [offscreen]);
 
-    const sendResize = (width: number, height: number) => {
+    const sendResize = (width: number, height: number, scale: number) => {
       if (width === 0 || height === 0) {
         return;
       }
-      worker.postMessage({ type: 'resize', width, height });
+      worker.postMessage({ type: 'resize', width, height, zoom: scale });
     };
 
     const initialWidth = canvas.width;
     const initialHeight = canvas.height;
-    sendResize(initialWidth, initialHeight);
+    sendResize(initialWidth, initialHeight, initial?.zoom ?? 1);
 
     return () => {
       worker.removeEventListener('message', handleMessage);
@@ -125,9 +130,10 @@ export const useEngine = (
     worker.postMessage({
       type: 'resize',
       width: logicalSize.width,
-      height: logicalSize.height
+      height: logicalSize.height,
+      zoom
     });
-  }, [logicalSize?.height, logicalSize?.width]);
+  }, [logicalSize?.height, logicalSize?.width, zoom]);
 
   const sendCommand = useCallback((command: EngineCommand) => {
     workerRef.current?.postMessage({ type: 'command', command });

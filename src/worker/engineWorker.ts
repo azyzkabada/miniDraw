@@ -24,6 +24,7 @@ const ctx: DedicatedWorkerGlobalScope = self as unknown as DedicatedWorkerGlobal
 let engine: EngineHandle | null = null;
 let canvasCtx: OffscreenCanvasRenderingContext2D | null = null;
 let devicePixelRatio = 1;
+let renderScale = 1;
 let isInitialized = false;
 let animationHandle: number | null = null;
 
@@ -34,18 +35,18 @@ const post = (message: WorkerToUIMessage) => ctx.postMessage(message);
 const paintState = (
   state: EngineStatePayload,
   context: OffscreenCanvasRenderingContext2D,
-  dpr: number
+  scale: number
 ) => {
   if (!state.document) {
     context.clearRect(0, 0, context.canvas.width, context.canvas.height);
     return;
   }
 
-  const logicalWidth = context.canvas.width / dpr;
-  const logicalHeight = context.canvas.height / dpr;
+  const logicalWidth = context.canvas.width / scale;
+  const logicalHeight = context.canvas.height / scale;
 
   context.save();
-  context.scale(dpr, dpr);
+  context.scale(scale, scale);
   context.clearRect(0, 0, logicalWidth, logicalHeight);
   for (const shape of state.document.shapes) {
     if (shape.kind === 'rectangle') {
@@ -87,7 +88,7 @@ const renderLoop = () => {
 
   try {
     const state = engine.tick();
-    paintState(state, canvasCtx, devicePixelRatio);
+    paintState(state, canvasCtx, renderScale);
     post({ type: 'state', payload: state });
   } catch (error) {
     console.error(error);
@@ -257,8 +258,10 @@ const handleResize = (message: Extract<UIToWorkerMessage, { type: 'resize' }>) =
   const width = Math.max(1, Math.floor(message.width));
   const height = Math.max(1, Math.floor(message.height));
 
-  canvasCtx.canvas.width = width * devicePixelRatio;
-  canvasCtx.canvas.height = height * devicePixelRatio;
+  renderScale = devicePixelRatio * Math.max(0.25, message.zoom);
+
+  canvasCtx.canvas.width = Math.max(1, Math.floor(width * renderScale));
+  canvasCtx.canvas.height = Math.max(1, Math.floor(height * renderScale));
 
   engine.resize(width, height);
 };

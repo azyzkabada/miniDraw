@@ -1,4 +1,5 @@
 import {
+  ChangeEventHandler,
   PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -8,10 +9,14 @@ import {
   useState
 } from 'react';
 
+import { StageCanvas } from './components/canvas/StageCanvas';
+import { TopBar } from './components/layout/TopBar';
+import { RightPanel } from './components/panel/RightPanel';
+import { BottomToolbar } from './components/toolbar/BottomToolbar';
 import type { EngineShape } from './engine/types';
 import { useEngine } from './hooks/useEngine';
-
-type Tool = 'select' | 'brush' | 'rectangle';
+import type { Tool } from './types/tools';
+import { computeCanvasMetrics } from './utils/dimensions';
 
 interface RectangleSettings {
   width: number;
@@ -43,7 +48,8 @@ const App = () => {
     width: typeof window !== 'undefined' ? window.innerWidth : INITIAL_WORKSPACE_WIDTH,
     height: typeof window !== 'undefined' ? window.innerHeight : INITIAL_WORKSPACE_HEIGHT
   }));
-  const { state, isReady, sendCommand, forwardPointerEvent } = useEngine(canvasRef, workspaceSize);
+  const [zoom, setZoom] = useState(1);
+  const { state, isReady, sendCommand, forwardPointerEvent } = useEngine(canvasRef, workspaceSize, zoom);
 
   const [activeTool, setActiveTool] = useState<Tool>('brush');
   const [activeColor, setActiveColor] = useState<string>(colorPalette[1]);
@@ -56,7 +62,7 @@ const App = () => {
     size: strokeSizes[3]
   });
   const brushStrokeMapRef = useRef<Map<number, string>>(new Map());
-  const [zoom, setZoom] = useState(1);
+  const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const previousWorkspaceRef = useRef(workspaceSize);
   const didInitScrollRef = useRef(false);
 
@@ -107,9 +113,6 @@ const App = () => {
     (value: number, focal?: { clientX: number; clientY: number }) => {
       setZoom((current) => {
         const next = clampZoom(value);
-        if (next === current) {
-          return current;
-        }
         adjustScrollForZoom(next, current, focal);
         return next;
       });
@@ -121,9 +124,6 @@ const App = () => {
     (delta: number, focal?: { clientX: number; clientY: number }) => {
       setZoom((current) => {
         const next = clampZoom(current + delta);
-        if (next === current) {
-          return current;
-        }
         adjustScrollForZoom(next, current, focal);
         return next;
       });
@@ -131,20 +131,52 @@ const App = () => {
     [adjustScrollForZoom, clampZoom]
   );
 
-  const setColor = (color: string) => {
+  const getZoomFocal = useCallback(() => {
+    if (lastPointerRef.current) {
+      return lastPointerRef.current;
+    }
+    const scroll = scrollRef.current;
+    if (!scroll) {
+      return undefined;
+    }
+    const rect = scroll.getBoundingClientRect();
+    return {
+      clientX: rect.left + scroll.clientWidth / 2,
+      clientY: rect.top + scroll.clientHeight / 2
+    };
+  }, []);
+
+  const handleZoomIn = useCallback(() => {
+    changeZoom(0.1, getZoomFocal());
+  }, [changeZoom, getZoomFocal]);
+
+  const handleZoomOut = useCallback(() => {
+    changeZoom(-0.1, getZoomFocal());
+  }, [changeZoom, getZoomFocal]);
+
+  const handleZoomReset = useCallback(() => {
+    applyZoom(1, getZoomFocal());
+  }, [applyZoom, getZoomFocal]);
+
+  const handleSelectTool = useCallback((tool: Tool) => {
+    setActiveTool(tool);
+  }, []);
+
+  const handleSelectColor = useCallback((color: string) => {
     setActiveColor(color);
-  };
+  }, []);
 
-  const setBrushSize = (size: number) => {
+  const handleSelectBrushSize = useCallback((size: number) => {
     setBrushSettings({ size });
-  };
+  }, []);
 
-  const toggleRectangleCenter = () => {
+  const handleToggleRectangleCenter = useCallback<ChangeEventHandler<HTMLInputElement>>((event) => {
+    const { checked } = event.target;
     setRectangleSettings((current) => ({
       ...current,
-      centerOnPointer: !current.centerOnPointer
+      centerOnPointer: checked
     }));
-  };
+  }, []);
 
   const createRectangleAt = useCallback(
     (x: number, y: number) => {
@@ -163,16 +195,29 @@ const App = () => {
     [activeColor, rectangleSettings, sendCommand]
   );
 
+  const shapes = useMemo<EngineShape[]>(() => {
+    const document = state.document;
+    return document ? document.shapes : [];
+  }, [state.document]);
+
+  const canvasMetrics = useMemo(
+    () => computeCanvasMetrics(workspaceSize, viewportSize, zoom),
+    [workspaceSize.height, workspaceSize.width, viewportSize.height, viewportSize.width, zoom]
+  );
+
   const handlePointerEvent = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>) => {
       if (!isReady) {
         return;
       }
 
+      lastPointerRef.current = { clientX: event.clientX, clientY: event.clientY };
+
       const canvas = event.currentTarget;
       const bounds = canvas.getBoundingClientRect();
-      const scaleX = bounds.width > 0 ? workspaceSize.width / bounds.width : 1;
-      const scaleY = bounds.height > 0 ? workspaceSize.height / bounds.height : 1;
+      const { logicalWidth, logicalHeight } = canvasMetrics;
+      const scaleX = logicalWidth > 0 ? workspaceSize.width / logicalWidth : 1;
+      const scaleY = logicalHeight > 0 ? workspaceSize.height / logicalHeight : 1;
       const localX = (event.clientX - bounds.left) * scaleX;
       const localY = (event.clientY - bounds.top) * scaleY;
 
@@ -231,13 +276,8 @@ const App = () => {
       event.preventDefault();
       forwardPointerEvent(event.nativeEvent, { x: scaleX, y: scaleY });
     },
-    [activeColor, activeTool, brushSettings.size, createRectangleAt, forwardPointerEvent, isReady, sendCommand, workspaceSize.height, workspaceSize.width]
+    [activeColor, activeTool, brushSettings.size, canvasMetrics, createRectangleAt, forwardPointerEvent, isReady, sendCommand, workspaceSize.height, workspaceSize.width]
   );
-
-  const shapes = useMemo<EngineShape[]>(() => {
-    const document = state.document;
-    return document ? document.shapes : [];
-  }, [state.document]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -303,8 +343,7 @@ const App = () => {
     }
 
     const previous = previousWorkspaceRef.current;
-    const scaledWidth = workspaceSize.width * zoom;
-    const scaledHeight = workspaceSize.height * zoom;
+    const { logicalHeight, logicalWidth } = canvasMetrics;
 
     const grewWidth = workspaceSize.width > previous.width;
     const grewHeight = workspaceSize.height > previous.height;
@@ -313,12 +352,12 @@ const App = () => {
     let targetTop = scroll.scrollTop;
 
     if (!didInitScrollRef.current || grewWidth || grewHeight) {
-      targetLeft = Math.max(0, (scaledWidth + WORKSPACE_MARGIN * 2 - scroll.clientWidth) / 2);
-      targetTop = Math.max(0, (scaledHeight + WORKSPACE_MARGIN * 2 - scroll.clientHeight) / 2);
+      targetLeft = Math.max(0, (logicalWidth + WORKSPACE_MARGIN * 2 - scroll.clientWidth) / 2);
+      targetTop = Math.max(0, (logicalHeight + WORKSPACE_MARGIN * 2 - scroll.clientHeight) / 2);
     }
 
-    const maxScrollLeft = Math.max(0, scaledWidth - scroll.clientWidth);
-    const maxScrollTop = Math.max(0, scaledHeight - scroll.clientHeight);
+    const maxScrollLeft = Math.max(0, logicalWidth - scroll.clientWidth);
+    const maxScrollTop = Math.max(0, logicalHeight - scroll.clientHeight);
 
     targetLeft = Math.min(targetLeft, maxScrollLeft);
     targetTop = Math.min(targetTop, maxScrollTop);
@@ -329,7 +368,7 @@ const App = () => {
 
     didInitScrollRef.current = true;
     previousWorkspaceRef.current = workspaceSize;
-  }, [workspaceSize.height, workspaceSize.width, zoom]);
+  }, [canvasMetrics.logicalHeight, canvasMetrics.logicalWidth, workspaceSize.height, workspaceSize.width, zoom]);
 
   const handleWheel = useCallback(
     (event: WheelEvent) => {
@@ -363,128 +402,37 @@ const App = () => {
   return (
     <div className="stage">
       <div className="canvas-scroll" ref={scrollRef}>
-        <div
-          className="canvas-area"
-          style={{
-            width: Math.max(workspaceSize.width * zoom, viewportSize.width),
-            height: Math.max(workspaceSize.height * zoom, viewportSize.height)
-          }}
-        >
-          <div
-            className="canvas-inner"
-            style={{
-              width: workspaceSize.width,
-              height: workspaceSize.height,
-              transform: `scale(${zoom})`,
-              transformOrigin: 'top left'
-            }}
-          >
-            <canvas
-              ref={canvasRef}
-              style={{
-                width: workspaceSize.width,
-                height: workspaceSize.height
-              }}
-              onPointerDown={handlePointerEvent}
-              onPointerMove={handlePointerEvent}
-              onPointerUp={handlePointerEvent}
-              onPointerCancel={handlePointerEvent}
-            />
-          </div>
-        </div>
+        <StageCanvas
+          canvasRef={canvasRef}
+          metrics={canvasMetrics}
+          zoom={zoom}
+          onPointerEvent={handlePointerEvent}
+        />
       </div>
 
-      <header className="top-bar">
-        <div className="brand">
-          <span className="brand-dot" />
-          <span>MiniDraw</span>
-        </div>
-        <div className="top-actions">
-          <span className="stats">{totalStrokes} traits · {totalRectangles} rectangles</span>
-          <button type="button" className="ghost">Partager</button>
-        </div>
-      </header>
+      <TopBar totalStrokes={totalStrokes} totalRectangles={totalRectangles} />
 
-      <div className="top-right panel">
-          <div className="panel-section">
-            <span className="panel-title">Couleur</span>
-            <div className="color-grid">
-              {colorPalette.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  className={`color-swatch${color === activeColor ? ' active' : ''}`}
-                  style={{ backgroundColor: color }}
-                  onClick={() => setColor(color)}
-                />
-              ))}
-            </div>
-          </div>
+      <RightPanel
+        colors={colorPalette}
+        activeColor={activeColor}
+        onSelectColor={handleSelectColor}
+        strokeSizes={strokeSizes}
+        activeStrokeSize={brushSettings.size}
+        onSelectStrokeSize={handleSelectBrushSize}
+        centerRectangles={rectangleSettings.centerOnPointer}
+        onToggleCenter={handleToggleRectangleCenter}
+      />
 
-          <div className="panel-section">
-            <span className="panel-title">Épaisseur</span>
-            <div className="size-row">
-              {strokeSizes.map((size) => (
-                <button
-                  key={size}
-                  type="button"
-                  className={`size-pill${size === brushSettings.size ? ' active' : ''}`}
-                  onClick={() => setBrushSize(size)}
-                >
-                  {size}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="panel-section">
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={rectangleSettings.centerOnPointer}
-                onChange={toggleRectangleCenter}
-              />
-              Centrer les rectangles
-            </label>
-          </div>
-        </div>
-
-        <div className="bottom-toolbar">
-          <div className="toolbar-group">
-            <button
-              type="button"
-              className={activeTool === 'select' ? 'active' : ''}
-              onClick={() => setActiveTool('select')}
-            >
-              ⬚
-            </button>
-            <button
-              type="button"
-              className={activeTool === 'brush' ? 'active' : ''}
-              onClick={() => setActiveTool('brush')}
-              disabled={!isReady}
-            >
-              ✒️
-            </button>
-            <button
-              type="button"
-              className={activeTool === 'rectangle' ? 'active' : ''}
-              onClick={() => setActiveTool('rectangle')}
-              disabled={!isReady}
-            >
-              ▭
-            </button>
-          </div>
-          <div className="toolbar-group zoom-controls">
-            <button type="button" onClick={() => changeZoom(0.1)}>+</button>
-            <span className="hint">{Math.round(zoom * 100)}%</span>
-            <button type="button" onClick={() => changeZoom(-0.1)}>-</button>
-            <button type="button" onClick={() => applyZoom(1)}>Reset</button>
-          </div>
-          <div className="toolbar-group">
-            <span className="hint">{isReady ? 'Dessinez librement sur la scène.' : 'Initialisation du moteur…'}</span>
-          </div>
-        </div>
+      <BottomToolbar
+        activeTool={activeTool}
+        onSelectTool={handleSelectTool}
+        canDraw={isReady}
+        zoom={zoom}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onZoomReset={handleZoomReset}
+        statusMessage={isReady ? 'Dessinez librement sur la scène.' : 'Initialisation du moteur…'}
+      />
     </div>
   );
 };
